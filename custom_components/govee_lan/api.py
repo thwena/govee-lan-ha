@@ -101,6 +101,10 @@ class GoveeLanClient:
                 lambda: _ResponseProtocol(response, self.host),
                 local_addr=local_addr,
                 family=socket.AF_INET,
+                # Home Assistant or another Govee integration may already
+                # have a wildcard listener on 4002. This socket is bound to
+                # the route-specific address and filters by device IP.
+                reuse_port=reply,
             )
         except OSError as err:
             if err.errno == errno.EADDRINUSE:
