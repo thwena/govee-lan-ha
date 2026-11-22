@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import errno
 import json
+import socket
 from typing import Any
 
 from .const import CONTROL_PORT, RESPONSE_PORT, UDP_TIMEOUT
@@ -18,6 +20,10 @@ class GoveeLanError(Exception):
 
 class GoveeLanTimeout(GoveeLanError):
     """Raised when a device does not answer a status query."""
+
+
+class GoveeLanPortInUse(GoveeLanError):
+    """Raised when another process already owns the Govee response port."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,14 +86,29 @@ class GoveeLanClient:
         self.timeout = timeout
         self._lock = asyncio.Lock()
 
+    def _local_ip(self) -> str:
+        """Return the IPv4 address Linux will use to reach this device."""
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as route_socket:
+            route_socket.connect((self.host, CONTROL_PORT))
+            return str(route_socket.getsockname()[0])
+
     async def _send(self, command: str, data: dict[str, Any], *, reply: bool) -> bytes | None:
         loop = asyncio.get_running_loop()
         response: asyncio.Future[bytes] = loop.create_future()
-        local_addr = ("0.0.0.0", RESPONSE_PORT) if reply else None
-        transport, _ = await loop.create_datagram_endpoint(
-            lambda: _ResponseProtocol(response, self.host),
-            local_addr=local_addr,
-        )
+        local_addr = (self._local_ip(), RESPONSE_PORT) if reply else None
+        try:
+            transport, _ = await loop.create_datagram_endpoint(
+                lambda: _ResponseProtocol(response, self.host),
+                local_addr=local_addr,
+                family=socket.AF_INET,
+            )
+        except OSError as err:
+            if err.errno == errno.EADDRINUSE:
+                bind_host = local_addr[0] if local_addr else "the selected interface"
+                raise GoveeLanPortInUse(
+                    f"UDP port {RESPONSE_PORT} is already in use on {bind_host}"
+                ) from err
+            raise GoveeLanError(f"could not open UDP socket on {local_addr}") from err
         try:
             transport.sendto(encode_command(command, data), (self.host, CONTROL_PORT))
             if not reply:

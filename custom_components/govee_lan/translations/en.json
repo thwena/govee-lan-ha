@@ -8,7 +8,8 @@
       }
     },
     "error": {
-      "cannot_connect": "No valid LAN status response was received",
+      "cannot_connect": "No valid LAN status response was received. Confirm LAN Control is enabled and UDP 4002/4003 is allowed.",
+      "port_in_use": "UDP port 4002 is already in use on the network interface Home Assistant uses for this device",
       "invalid_host": "Enter a valid IPv4 address"
     },
     "abort": {"already_configured": "This IP address is already configured"}

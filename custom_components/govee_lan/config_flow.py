@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_NAME
 
-from .api import GoveeLanClient, GoveeLanError
+from .api import GoveeLanClient, GoveeLanError, GoveeLanPortInUse
 from .const import CONF_MODEL, DEFAULT_NAME, DOMAIN, SUPPORTED_MODELS
 
 
@@ -28,6 +28,8 @@ class GoveeLanConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 try:
                     await GoveeLanClient(host).query_state()
+                except GoveeLanPortInUse:
+                    errors["base"] = "port_in_use"
                 except (GoveeLanError, OSError):
                     errors["base"] = "cannot_connect"
                 else:
