@@ -1,0 +1,16 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a Govee LAN light",
+        "description": "LAN Control must be enabled in the Govee app. Enter the light's fixed IPv4 address.",
+        "data": {"host": "IP address", "model": "Model", "name": "Name"}
+      }
+    },
+    "error": {
+      "cannot_connect": "No valid LAN status response was received",
+      "invalid_host": "Enter a valid IPv4 address"
+    },
+    "abort": {"already_configured": "This IP address is already configured"}
+  }
+}
