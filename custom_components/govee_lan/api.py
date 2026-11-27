@@ -70,8 +70,15 @@ class _ResponseProtocol(asyncio.DatagramProtocol):
         self._expected_ip = expected_ip
 
     def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
-        if addr[0] == self._expected_ip and not self._future.done():
-            self._future.set_result(data)
+        if addr[0] != self._expected_ip or self._future.done():
+            return
+        # Replies may originate from any UDP source port. Ignore unrelated or
+        # malformed traffic without consuming this query's valid response.
+        try:
+            GoveeState.from_packet(data)
+        except GoveeLanError:
+            return
+        self._future.set_result(data)
 
     def error_received(self, exc: Exception) -> None:
         if not self._future.done():

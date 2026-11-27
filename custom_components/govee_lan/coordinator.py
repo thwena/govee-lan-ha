@@ -1,9 +1,11 @@
 """Status polling for Govee LAN devices."""
 
+from datetime import datetime, timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import GoveeLanClient, GoveeLanError, GoveeState
@@ -23,6 +25,16 @@ class GoveeLanCoordinator(DataUpdateCoordinator[GoveeState]):
         )
         self.client = client
         self._consecutive_failures = 0
+        # Keep a separate recovery schedule even if normal coordinator polling
+        # has stopped. Use request_refresh so concurrent refreshes are coalesced.
+        entry.async_on_unload(
+            async_track_time_interval(hass, self._async_recover, timedelta(seconds=60))
+        )
+
+    async def _async_recover(self, now: datetime) -> None:
+        """Retry unavailable devices indefinitely without reloading the entry."""
+        if not self.last_update_success:
+            await self.async_request_refresh()
 
     async def _async_update_data(self) -> GoveeState:
         try:
